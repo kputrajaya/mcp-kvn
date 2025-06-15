@@ -18,7 +18,7 @@ async def handle_list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name='summarize-bg',
-            description='Summarize a board game rulebook PDF from local file or URL',
+            description='Summarize a board game rules from a PDF path or URL',
             inputSchema={
                 'type': 'object',
                 'properties': {
