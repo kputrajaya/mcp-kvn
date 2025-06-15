@@ -1,71 +1,62 @@
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
-import mcp.server.stdio
-import toml
+import io
 
-from mcp_kvn.tools import summarize_bg
+from fastmcp import FastMCP
+from pydantic import Field
+from pypdf import PdfReader
+import requests
+from typing import Annotated
 
-server = Server('mcp-kvn')
-
-
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    '''
-    List available tools.
-    Each tool specifies its arguments using JSON Schema validation.
-    '''
-    return [
-        types.Tool(
-            name='summarize-bg',
-            description='Summarize a board game rules from a PDF path or URL',
-            inputSchema={
-                'type': 'object',
-                'properties': {
-                    'file': {'type': 'string'},
-                },
-                'required': ['file'],
-            },
-        )
-    ]
+server = FastMCP('mcp-kvn')
 
 
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    '''
-    Handle tool execution requests.
-    Tools can modify server state and notify clients of changes.
-    '''
-    match name:
-        case 'summarize-bg':
-            if not arguments:
-                raise ValueError('Missing arguments')
-            file = arguments.get('file')
-            if not file:
-                raise ValueError('Missing file')
+@server.tool()
+async def summarize_bg(
+    file: Annotated[str, Field(description="URL or path of the PDF rulebook")]
+) -> str:
+    """Summarize board game rules from a rulebook"""
 
-            result = await summarize_bg(file)
-            return [types.TextContent(type='text', text=result)]
-        case _:
-            raise ValueError(f'Unknown tool: {name}')
+    text_content = ''
+    try:
+        reader = None
+        if file.startswith('http://') or file.startswith('https://'):
+            response = requests.get(file)
+            response.raise_for_status()
+            pdf_content = response.content
+            pdf_file_object = io.BytesIO(pdf_content)
+            reader = PdfReader(pdf_file_object)
+        else:
+            reader = PdfReader(file)
+
+        for page in reader.pages:
+            text_content += page.extract_text() + '\n'
+    except Exception as e:
+        text_content = f'Error reading PDF file {file}: {e}'
+
+    prompt = (
+        f'''
+        Summarize this board game rules (below triple backticks) into 2 main sections: "Setup" and "Guide".
+        Use simple short sentences and be very concise. Group similar items into one. Return the summary as bullet
+        points in this chat.
+
+        1. "Setup" is how we should set up the table to play this game: what components to prepare on/aside the main
+        area, what should each player get, etc. Do not state the obvious like "set up the board" or
+        "prepare resource bank", but rather focus on unique to-do items.
+
+        2. "Guide" is a step by step guide to play the game. Start with the objective of the game and how to win.
+        Then, go to game structure and player actions. It's also important to explain when and how the game ends,
+        including how to determine the winner.
+
+        ```
+
+        {text_content}
+        '''
+    )
+    return prompt
 
 
-async def main():
-    # Run the server using stdin/stdout streams
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        with open('pyproject.toml', 'r') as f:
-            project = toml.load(f)['project']
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name=project['name'],
-                server_version=project['version'],
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+def main():
+    server.run()
+
+
+if __name__ == '__main__':
+    main()
