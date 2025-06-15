@@ -19,9 +19,8 @@ async def summarize_bg(
     if file.startswith('http://') or file.startswith('https://'):
         response = requests.get(file)
         response.raise_for_status()
-        pdf_content = response.content
-        pdf_file_object = io.BytesIO(pdf_content)
-        reader = PdfReader(pdf_file_object)
+        pdf_object = io.BytesIO(response.content)
+        reader = PdfReader(pdf_object)
     else:
         reader = PdfReader(file)
 
