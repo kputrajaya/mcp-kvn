@@ -15,22 +15,19 @@ async def summarize_bg(
 ) -> str:
     """Summarize board game rules from a rulebook"""
 
-    text_content = ''
-    try:
-        reader = None
-        if file.startswith('http://') or file.startswith('https://'):
-            response = requests.get(file)
-            response.raise_for_status()
-            pdf_content = response.content
-            pdf_file_object = io.BytesIO(pdf_content)
-            reader = PdfReader(pdf_file_object)
-        else:
-            reader = PdfReader(file)
+    reader = None
+    if file.startswith('http://') or file.startswith('https://'):
+        response = requests.get(file)
+        response.raise_for_status()
+        pdf_content = response.content
+        pdf_file_object = io.BytesIO(pdf_content)
+        reader = PdfReader(pdf_file_object)
+    else:
+        reader = PdfReader(file)
 
-        for page in reader.pages:
-            text_content += page.extract_text() + '\n'
-    except Exception as e:
-        text_content = f'Error reading PDF file {file}: {e}'
+    text_content = ''
+    for page in reader.pages:
+        text_content += page.extract_text() + '\n'
 
     prompt = (
         f'''
