@@ -1,10 +1,11 @@
 import io
+from typing import Annotated
 
 from fastmcp import FastMCP
 from pydantic import Field
 from pypdf import PdfReader
 import requests
-from typing import Annotated
+
 
 server = FastMCP('mcp-kvn')
 
