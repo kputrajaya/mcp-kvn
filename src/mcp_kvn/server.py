@@ -51,6 +51,34 @@ async def summarize_bg(
     return prompt
 
 
+@server.tool()
+async def generate_feedback(
+    name: Annotated[str, Field(description="The name the given person")],
+    description: Annotated[str, Field(description="Key observations for the given person")]
+) -> str:
+    """Generate 360 feedback summary for peers or self"""
+
+    prompt = (
+        f'''
+        Help me write a 360 peer feedback for "{name}". I'll give you some of my key observations of this person below
+        triple backticks. You'll need to classify and expand the descriptions into two main categories: Strengths and
+        Growth Areas.
+
+        Use second-person view sentences (e.g., "You are a competent person"). Keep things concise but descriptive.
+        Include provided examples but keep them brief. The tone should be positive but motivating. The feedback
+        should be formed in bullet points (2-3 items each).
+
+        You can optionally highlight qualities that are related to user-centricity, empathy, hunger, growth
+        mindset, integrity, truthfulness, humility, servant leadership as it aligns with company values.
+
+        ```
+
+        {description}
+        '''
+    )
+    return prompt
+
+
 def main():
     server.run()
 
